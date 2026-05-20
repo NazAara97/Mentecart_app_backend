@@ -23,13 +23,19 @@ const bookingSchema = new mongoose.Schema(
           type: Number,
           required: true,
         },
+        time:{
+          type: String,
+          required: true,
+        },
+
+        date:{
+          type: String,
+          required: true,
+        },
       },
     ],
 
-    appointmentDate: {
-      type: Date,
-      required: true,
-    },
+   
 
     totalAmount: {
       type: Number,
@@ -38,7 +44,7 @@ const bookingSchema = new mongoose.Schema(
 
     status: {
       type: String,
-      enum: ["pending", "confirmed", "completed", "cancelled"],
+      enum: ["pending", "confirmed", "completed", "cancelled","paid", "failed" ,"unpaid"],
       default: "pending",
     },
   },

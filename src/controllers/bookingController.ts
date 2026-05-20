@@ -12,37 +12,57 @@ export const checkout = async (req: Request, res: Response) => {
   try {
     const userId = getUserId(req);
 
-    const { appointmentDate, items } = req.body; // ✅ accept items
+    const { items } = req.body;
 
     if (!items || items.length === 0) {
       return res.status(400).json({ message: "Cart is empty" });
     }
 
-    const formattedItems = items.map((item: any) => ({
-      serviceId: item.serviceId,
-      quantity: item.quantity,
-      price: item.price,
-    }));
+   const formattedItems = items.map((item: any) => {
+  let serviceId;
+
+  // ✅ handle ALL cases
+  if (typeof item.service === "string") {
+    serviceId = item.service;
+  } else if (item.service?._id) {
+    serviceId = item.service._id;
+  } else if (item.serviceId) {
+    serviceId = item.serviceId;
+  } else {
+    throw new Error("Missing serviceId");
+  }
+
+  return {
+    serviceId,
+    quantity: item.quantity || 1,
+    price: item.price ?? item.service?.price ?? 0, // fallback
+
+    date: item.date,
+    time: item.time,
+  };
+});
 
     const totalAmount = formattedItems.reduce(
-      (sum: number, item: any) => sum + item.price * item.quantity,
+      (sum: number, item: any) =>
+        sum + (item.price || 0) * item.quantity,
       0
     );
 
     const booking = await Booking.create({
       userId,
       items: formattedItems,
-      appointmentDate,
       totalAmount,
       status: "pending",
     });
 
     res.status(201).json(booking);
   } catch (err) {
-    res.status(401).json({ message: "Unauthorized" });
-  }
-
-  
+  console.error("❌ CHECKOUT ERROR FULL:", err);
+  res.status(500).json({
+    message: "Checkout failed",
+    error: err.message, // 👈 ADD THIS
+  });
+}
 };
 
 
@@ -86,16 +106,17 @@ export const cancelBooking = async (req: Request, res: Response) => {
 };
 
 
-export const payment = async (req: Request, res: Response) => {
+
+
+//paywithCard
+
+export const payWithCard = async (req: Request, res: Response) => {
   try {
     const userId = getUserId(req);
-
     const bookingId = req.params.id;
-    const {
-      method,
-      transactionId,
 
-      // ⚠️ DO NOT store raw values in production
+    const {
+      transactionId,
       cardHolderName,
       cardNumber,
       expiryMonth,
@@ -117,40 +138,83 @@ export const payment = async (req: Request, res: Response) => {
       });
     }
 
-    // 🔐 Mask card number (only last 4 digits)
-    let maskedCard = null;
-    if (cardNumber) {
-      const last4 = cardNumber.slice(-4);
-      maskedCard = `**** **** **** ${last4}`;
+    if (!cardNumber || !cardHolderName) {
+      return res.status(400).json({
+        message: "Card details are required",
+      });
     }
 
-    // 💳 update payment info
-    booking.status = "confirmed";
+    // 🔐 Mask card
+    const last4 = cardNumber.slice(-4);
+    const maskedCard = `**** **** **** ${last4}`;
+
+    booking.status = "paid";
 
     (booking as any).payment = {
-      method: method || "cash",
+      method: "card",
       transactionId: transactionId || null,
       paidAt: new Date(),
-
-      // ✅ SAFE stored info
-      card: method === "card"
-        ? {
-            cardHolderName,
-            last4: maskedCard,
-            expiryMonth,
-            expiryYear,
-          }
-        : null,
+      card: {
+        cardHolderName,
+        last4: maskedCard,
+        expiryMonth,
+        expiryYear,
+      },
     };
 
     await booking.save();
 
     res.json({
-      message: "Payment successful and booking confirmed",
+      message: "Card payment successful",
       booking,
     });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ message: "Payment failed" });
+    res.status(500).json({ message: "Card payment failed" });
+  }
+};
+
+
+
+
+export const payWithCash = async (req: Request, res: Response) => {
+  try {
+    const userId = getUserId(req);
+    const bookingId = req.params.id;
+
+    const booking = await Booking.findOne({
+      _id: bookingId,
+      userId,
+    });
+
+    if (!booking) {
+      return res.status(404).json({ message: "Booking not found" });
+    }
+
+    if (booking.status === "cancelled") {
+      return res.status(400).json({
+        message: "Cannot pay for cancelled booking",
+      });
+    }
+
+    // ✅ CASH PAYMENT
+    booking.status = "unpaid";
+
+    (booking as any).payment = {
+      method: "cash",
+      transactionId: null,
+      paidAt: new Date(),
+      card: null,
+    };
+
+    await booking.save();
+
+    res.json({
+      message: "Cash payment confirmed",
+      booking,
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Cash payment failed" });
   }
 };

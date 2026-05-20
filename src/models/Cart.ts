@@ -8,8 +8,18 @@ const cartSchema = new mongoose.Schema({
         type: mongoose.Schema.Types.ObjectId,
         ref: "Service"
       },
-      quantity: Number
+      quantity: Number,
+    date: {
+      type: String,
+      required: true,
+    },
+    time: {
+      type: String,
+      required: true,
+    },
+
     }
+
   ]
 });
 
