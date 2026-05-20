@@ -11,12 +11,11 @@ This backend powers the MenteCart platform, handling authentication, service man
 • 🛠 Service Catalog Management
 • 🛒 Cart System with Slot Selection
 • 📅 Booking Management Workflow
-• ⚡ Atomic Slot Capacity Handling
 • 🚫 Overbooking Prevention
 • 📦 RESTful API Architecture
 • 🧾 Centralized Error Handling
 • 🧪 Validation Layer
-• 🐳 Docker Ready
+
 
 ───
 
