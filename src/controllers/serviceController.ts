@@ -3,8 +3,27 @@ import Service from "../models/Service.js";
 
 // GET all services
 export const getServices = async (req: Request, res: Response) => {
-  const services = await Service.find();
-  res.json(services);
+  try {
+    const { search, category } = req.query;
+
+    let filter: any = {};
+
+    // 🔍 SEARCH FILTER
+    if (search) {
+      filter.title = { $regex: search, $options: "i" }; // case-insensitive
+    }
+
+    // 📂 CATEGORY FILTER
+    if (category) {
+      filter.category = category;
+    }
+
+    const services = await Service.find(filter);
+
+    res.json(services);
+  } catch (err) {
+    res.status(500).json({ message: "Error fetching services" });
+  }
 };
 
 // GET single service
